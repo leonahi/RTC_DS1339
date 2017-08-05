@@ -26,7 +26,7 @@
 #define DSRTCLib_MIN	1
 #define DSRTCLib_HR	2
 #define DSRTCLib_DOW	3
-#define DSRTCLib_DATE     4
+#define DSRTCLib_DATE   4
 #define DSRTCLib_MTH	5
 #define DSRTCLib_YR	6
 
