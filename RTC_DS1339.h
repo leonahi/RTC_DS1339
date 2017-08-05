@@ -1,5 +1,5 @@
 /*
-  DSRTCLib.h - library for Maxim Integrated's DS1337 and DS1339 RTCs
+  RTC_DS1339.h - library for Maxim Integrated's DS1339 RTC
 */
 
 // ensure this library description is only included once
