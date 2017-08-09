@@ -33,8 +33,8 @@ extern "C" {
 	
 }
 
-//#include <Arduino.h>
-#include "DSRTCLib.h"
+#include <Arduino.h>
+#include "RTC_DS1339.h"
 #include <Wire.h>
 
 // NOTE: To keep the math from getting even more lengthy/annoying than it already is, the following constraints are imposed:
@@ -66,16 +66,16 @@ void DSRTCLib::init() {
 
 // Aquire data from the RTC chip in BCD format
 // refresh the buffer
-void DSRTCLib::readTime(void)
+void RTC_DS1339::Read_Time(void)
 {
 // use the Wire lib to connect to tho rtc
 // reset the register pointer to zero
-	Wire.beginTransmission(DSRTCLib_CTRL_ID);
+	Wire.beginTransmission(DS1339_ADDR);
 	I2C_WRITE((uint8_t)0x00); // Explicit cast is to hack around http://code.google.com/p/arduino/issues/detail?id=527
 	Wire.endTransmission();
 
 // request the 7 bytes of data    (secs, min, hr, dow, date. mth, yr)
-	Wire.requestFrom(DSRTCLib_CTRL_ID, 7);
+	Wire.requestFrom(DS1339_ADDR, 7);
 	for(int i=0; i<7; i++)
 	{
 	// store data in raw bcd format
@@ -85,13 +85,13 @@ void DSRTCLib::readTime(void)
 }
 
 // Read the current alarm value. Note that the repeat flags and DY/DT are removed from the result.
-void DSRTCLib::readAlarm(void)
+void RTC_DS1339::Read_Alarm(void)
 {
         //alarm_repeat = 0;
         byte temp;
 // use the Wire lib to connect to tho rtc
 // point to start of Alarm1 registers
-	Wire.beginTransmission(DSRTCLib_CTRL_ID);
+	Wire.beginTransmission(DS1339_ADDR);
 	I2C_WRITE((uint8_t)DSRTCLib_ARLM1);
 	Wire.endTransmission();
 
@@ -124,7 +124,7 @@ void DSRTCLib::readAlarm(void)
 
 // update the data on the IC from the bcd formatted data in the buffer
 
-void DSRTCLib::writeTime(void)
+void RTC_DS1339::writeTime(void)
 {
 	Wire.beginTransmission(DSRTCLib_CTRL_ID);
 	I2C_WRITE((uint8_t)0x00); // reset register pointer
@@ -138,7 +138,7 @@ void DSRTCLib::writeTime(void)
         setRegister(DSRTCLib_STATUS, getRegister(DSRTCLib_STATUS) & !DSRTCLib_STATUS_OSF);
 }
 
-void DSRTCLib::writeTime(unsigned long sse)
+void RTC_DS1339::writeTime(unsigned long sse)
 {
         epoch_seconds_to_date(sse);
         writeTime();
@@ -184,8 +184,7 @@ void DSRTCLib::setAlarmRepeat(byte repeat)
         alarm_repeat = repeat;
 }
 
-
-unsigned char DSRTCLib::getRegister(unsigned char registerNumber)
+unsigned char RTC_DS1339::Get_Register(unsigned char registerNumber)
 {
 	Wire.beginTransmission(DSRTCLib_CTRL_ID);
 	I2C_WRITE(registerNumber);
@@ -196,7 +195,7 @@ unsigned char DSRTCLib::getRegister(unsigned char registerNumber)
 	return I2C_READ();
 }
 
-void DSRTCLib::setRegister(unsigned char registerNumber, unsigned char value)
+void RTC_DS1339::Set_Register(unsigned char registerNumber, unsigned char value)
 {
 	Wire.beginTransmission(DSRTCLib_CTRL_ID);
 	I2C_WRITE(registerNumber); // set register pointer
@@ -219,48 +218,49 @@ unsigned char DSRTCLib::alarm_is_set()
   return asdf;
 }
 
-void DSRTCLib::enable_interrupt()
+void RTC_DS1339::Enable_Interrupt(alarm a)
 {
-   clear_interrupt();
-   setRegister(DSRTCLib_SP, getRegister(DSRTCLib_SP) | DSRTCLib_SP_INTCN | DSRTCLib_SP_A1IE); // map alarm interrupt to INT1 and enable interrupt
+    Clear_Interrupt(a);
+    Set_Register(REG_DS1339_CONTROL, Get_Register(REG_DS1339_CONTROL) | BITM_DS1339_CONTROL_INTCN | ALARM_INDEX(a));
 }
 
-void DSRTCLib::disable_interrupt()
+void RTC_DS1339::Disable_Interrupt(alarm a)
 {
-   setRegister(DSRTCLib_SP, getRegister(DSRTCLib_SP) & !DSRTCLib_SP_A1IE);
+    Clear_Interrupt(a);
+    Set_Register(REG_DS1339_CONTROL, Get_Register(REG_DS1339_CONTROL) & !ALARM_INDEX(a));            
 }
 
-void DSRTCLib::clear_interrupt()
+void DSRTCLib::Clear_Interrupt(alarm a)
 {
-   setRegister(DSRTCLib_STATUS, getRegister(DSRTCLib_STATUS) & !DSRTCLib_STATUS_A1F);
+    Set_Register(REG_DS1339_STATUS, Get_Register(REG_DS1339_STATUS) & !ALARM_INDEX(a));
 }
 
-unsigned char DSRTCLib::getSeconds()
+unsigned char RTC_DS1339::Get_Seconds()
 {
     return bcd2bin(rtc_bcd[DSRTCLib_SEC]);
 }
 
-unsigned char DSRTCLib::getMinutes()
+unsigned char RTC_DS1339::Get_Minutes()
 {
     return bcd2bin(rtc_bcd[DSRTCLib_MIN]);
 }
-unsigned char DSRTCLib::getHours()
+unsigned char RTC_DS1339::Get_Hours()
 {
     return bcd2bin(rtc_bcd[DSRTCLib_HR]);
 }
-unsigned char DSRTCLib::getDays()
+unsigned char RTC_DS1339::Get_Days()
 {
     return bcd2bin(rtc_bcd[DSRTCLib_DATE]);
 }
-unsigned char DSRTCLib::getDayOfWeek()
+unsigned char RTC_DS1339::Get_DayOfWeek()
 {
     return bcd2bin(rtc_bcd[DSRTCLib_DOW]);
 }
-unsigned char DSRTCLib::getMonths()
+unsigned char RTC_DS1339::Get_Months()
 {
     return bcd2bin(rtc_bcd[DSRTCLib_MTH]);
 }
-unsigned int DSRTCLib::getYears()
+unsigned int RTC_DS1339::Get_Years()
 {
     return 2000 + bcd2bin(rtc_bcd[DSRTCLib_YR]);
 }
@@ -306,8 +306,6 @@ unsigned long DSRTCLib::date_to_epoch_seconds()
      unsigned long asdf = date_to_epoch_seconds(int(bcd2bin(rtc_bcd[DSRTCLib_YR])), bcd2bin(rtc_bcd[DSRTCLib_MTH]), bcd2bin(rtc_bcd[DSRTCLib_DATE]), bcd2bin(rtc_bcd[DSRTCLib_HR]), bcd2bin(rtc_bcd[DSRTCLib_MIN]), bcd2bin(rtc_bcd[DSRTCLib_SEC]));
      return asdf;
 }
-
-
 
 void DSRTCLib::epoch_seconds_to_date(unsigned long seconds_left)
 {
@@ -492,64 +490,62 @@ void DSRTCLib::custom_snooze(unsigned long secondsToSnooze)
   
 }
 
-void DSRTCLib::setSeconds(unsigned char v)
+void RTC_DS1339::Set_Seconds(unsigned char v)
 {
-    rtc_bcd[DSRTCLib_SEC] = bin2bcd(v);
+    rtc_bcd[DS1339_SEC] = bin2bcd(v);
 
 }
-void DSRTCLib::setMinutes(unsigned char v)
+void RTC_DS1339::Set_Minutes(unsigned char v)
 {
-    rtc_bcd[DSRTCLib_MIN] = bin2bcd(v);
+    rtc_bcd[DS1339_MIN] = bin2bcd(v);
 
 }
-void DSRTCLib::setHours(unsigned char v)
+void RTC_DS1339::Set_Hours(unsigned char v)
 {
-    rtc_bcd[DSRTCLib_HR] = bin2bcd(v);
+    rtc_bcd[DS1339_HOUR] = bin2bcd(v);
 
 }
-void DSRTCLib::setDays(unsigned char v)
+void RTC_DS1339::Set_DayOfWeek(unsigned char v)
 {
-    rtc_bcd[DSRTCLib_DATE] = bin2bcd(v);
+    rtc_bcd[DS1339_DOW] = bin2bcd(v);
 
 }
-void DSRTCLib::setDayOfWeek(unsigned char v)
+void RTC_DS1339::Set_Days(unsigned char v)
 {
-    rtc_bcd[DSRTCLib_DOW] = bin2bcd(v);
+    rtc_bcd[DS1339_DATE] = bin2bcd(v);
 
 }
-void DSRTCLib::setMonths(unsigned char v)
+void RTC_DS1339::Set_Months(unsigned char v)
 {
-    rtc_bcd[DSRTCLib_MTH] = bin2bcd(v);
+    rtc_bcd[DS1339_MONTH] = bin2bcd(v);
 
 }
-void DSRTCLib::setYears(unsigned int v)
+void RTC_DS1339::Set_Years(unsigned int v)
 {
-    if (v>1999)
-    {
+    if(v>1999)
         v -= 2000;
-    }
-    rtc_bcd[DSRTCLib_YR] = bin2bcd(v);
+    rtc_bcd[DS1339_YEAR] = bin2bcd(v);
 
 }
 
-byte DSRTCLib::bcd2bin(byte v)
+byte RTC_DS1339::bcd2bin(byte v)
 {
    return (v&0x0F) + ((v>>4)*10);
 }
 
-byte DSRTCLib::bin2bcd(byte v)
+byte RTC_DS1339::bin2bcd(byte v)
 {
    return ((v / 10)<<4) + (v % 10);
 }
 
-void DSRTCLib::stop(void)
+void RTC_DS1339::Stop(void)
 {
-	setRegister(DSRTCLib_SP, getRegister(DSRTCLib_SP) | DSRTCLib_SP_EOSC);
+	Set_Register(REG_DS1339_CONTROL, Get_Register(REG_DS1339_CONTROL) | BITM_DS1339_CONTROL_EOSC);
 }
 
-void DSRTCLib::start(void)
+void RTC_DS1339::Start(void)
 {
-	setRegister(DSRTCLib_SP, getRegister(DSRTCLib_SP) & !DSRTCLib_SP_EOSC);
+	Set_Register(REG_DS1339_CONTROL, Get_Register(REG_DS1339_CONTROL) & !BITM_DS1339_CONTROL_EOSC);
 }
 
 // class DS1339
