@@ -1,5 +1,7 @@
 /*
   RTC_DS1339.h - library for Maxim Integrated's DS1339 RTC
+  Note : The supported format of date and time is - (SEC : MIN : HOUR : DATE : MONTH : YEAR) where HOUR is in 24 hour format
+         Day of week (DOW) is not implemented in this version of library 
 */
 
 // ensure this library description is only included once
@@ -139,11 +141,11 @@
 
 // REG_DS1339_ALARM1_SECONDS - Alarm 1 Seconds
 // SEC
-#define BITM_DS1339_ALARM1_MINUTES_SEC B01111111
-#define BITP_DS1339_ALARM1_MINUTES_SEC 1
+#define BITM_DS1339_ALARM1_SECONDS_SEC B01111111
+#define BITP_DS1339_ALARM1_SECONDS_SEC 1
 // A1M1
-#define BITM_DS1339_ALARM1_MINUTES_A1M1 B10000000
-#define BITP_DS1339_ALARM1_MINUTES_A1M1 7
+#define BITM_DS1339_ALARM1_SECONDS_A1M1 B10000000
+#define BITP_DS1339_ALARM1_SECONDS_A1M1 7
 
 // REG_DS1339_ALARM1_MINUTES - Alarm 1 Minutes
 // MIN
@@ -287,6 +289,8 @@ class RTC_DS1339
 	// user-accessible "public" interface
 public:
     enum alarm {A1, A2};
+    enum alarm1_rate {OPT1=15, OPT2=14, OPT3=12, OPT4=1, OPT5=0};
+    enum alarm2_rate {OPT1=7, OPT2=6, OPT3=4, OPT4=0};
     
     RTC_DS1339();
     RTC_DS1339(int int_pin, int int_number);
@@ -298,9 +302,14 @@ public:
     void Enable_Interrupt();
     void Disable_Interrupt();
     void Clear_Interrupt();
-
-		void    readTime();
-		void    readAlarm();
+    
+    void read_time();
+    void read_alarm1();
+    void read_alarm2();
+    
+    void set_alarm1_rate(alarm1_rate opt);
+    void set_alarm2_rate(alarm2_rate opt);
+        
 		void    writeTime();
                 void    writeTime(unsigned long);
 		void    writeAlarm();
@@ -313,27 +322,27 @@ public:
                 void snooze(unsigned long secondsToSnooze);
 				void custom_snooze(unsigned long secondsToSnooze);
 
-        unsigned char Get_Seconds();
-        unsigned char Get_Minutes();
-        unsigned char Get_Hours();
-        unsigned char Get_Days();
-        unsigned char Get_DayOfWeek();
-        unsigned char Get_Months();
-        unsigned int Get_Years();
+        unsigned char get_second();
+        unsigned char get_minute();
+        unsigned char get_hour();
+        unsigned char get_day();
+        unsigned char get_dayofweek();
+        unsigned char get_month();
+        unsigned int get_year();
                         
-        void Set_Seconds(unsigned char);
-        void Set_Minutes(unsigned char);
-        void Set_Hours(unsigned char);
-        void Set_Days(unsigned char);
-        void Set_DayOfWeek(unsigned char);
-        void Set_Months(unsigned char);
-        void Set_Years(unsigned int);
+        void set_second(unsigned char);
+        void set_minute(unsigned char);
+        void set_hour(unsigned char);
+        void set_day(unsigned char);
+        void set_dayofweek(unsigned char);
+        void set_month(unsigned char);
+        void set_year(unsigned int);
 
-        void Start(void);
-        void Stop(void);
+        void start(void);
+        void stop(void);
         
-        unsigned char Get_Register(unsigned char reg_address);
-        void Set_Register(unsigned char reg_address, unsigned char reg_value);
+        unsigned char get_register(unsigned char reg_address);
+        void set_register(unsigned char reg_address, unsigned char reg_value);
 private:
     void init();
     byte time_set;

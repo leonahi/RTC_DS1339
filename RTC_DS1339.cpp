@@ -64,78 +64,69 @@ void DSRTCLib::init() {
 	digitalWrite(_rtc_int_pin, HIGH);	// enable software pullup resistor on RTC interrupt pin
 }
 
-// Aquire data from the RTC chip in BCD format
-// refresh the buffer
-void RTC_DS1339::Read_Time(void)
+// Read current time and date from the DS1339 chip in BCD format
+void RTC_DS1339::read_time(void)
 {
-// use the Wire lib to connect to tho rtc
-// reset the register pointer to zero
-	Wire.beginTransmission(DS1339_ADDR);
-	I2C_WRITE((uint8_t)0x00); // Explicit cast is to hack around http://code.google.com/p/arduino/issues/detail?id=527
-	Wire.endTransmission();
-
-// request the 7 bytes of data    (secs, min, hr, dow, date. mth, yr)
-	Wire.requestFrom(DS1339_ADDR, 7);
-	for(int i=0; i<7; i++)
-	{
-	// store data in raw bcd format
-		if (Wire.available())
-			rtc_bcd[i]=I2C_READ();
-	}
+    Wire.beginTransmission(DS1339_ADDR);
+    Wire.write(0);
+    Wire.endTransmission();
+    
+    // request 7 bytes (secs, min, hour(24), dow, date, month, year)
+    Wire.requestFrom(DS1339_ADDR, 7);
+    rtc_bcd[DS1339_SEC] = Wire.read();
+    rtc_bcd[DS1339_MIN] = Wire.read();
+    rtc_bcd[DS1339_HOUR] = Wire.read();
+    rtc_bcd[DS1339_DOW] = Wire.read();
+    rtc_bcd[DS1339_DATE] = Wire.read();
+    rtc_bcd[DS1339_MONTH] = Wire.read();
+    rtc_bcd[DS1339_YEAR] = Wire.read();
 }
 
-// Read the current alarm value. Note that the repeat flags and DY/DT are removed from the result.
-void RTC_DS1339::Read_Alarm(void)
+// Read the current alarm 1 value in BCD format.
+void RTC_DS1339::read_alarm1(void)
 {
-        //alarm_repeat = 0;
-        byte temp;
-// use the Wire lib to connect to tho rtc
-// point to start of Alarm1 registers
-	Wire.beginTransmission(DS1339_ADDR);
-	I2C_WRITE((uint8_t)DSRTCLib_ARLM1);
-	Wire.endTransmission();
+    Wire.beginTransmission(DS1339_ADDR);
+    Wire.write( (uint8_t)DS1339_ALARM1_ADDR );
+    Wire.endTransmission();
+    
+    // Request 4 bytes of alarm 1 values (sec : min : hour : date)
+    Wire.requestFrom(DS1339_ADDR, 4);    
+    rtc_bcd[DS1339_SEC] = Wire.read() & B01111111;
+    rtc_bcd[DS1339_MIN] = Wire.read() & B01111111;
+    rtc_bcd[DS1339_HOUR] = Wire.read() & B01111111;  // Only 24 hour format is supported other bits are discarted
+    rtc_bcd[DS1339_DATE] = Wire.read() & B01111111;  // Only Date of month is supported other bits are discarted    
+}
 
-// request the *4* bytes of data (secs, min, hr, dow/date). Note the format is nearly identical, except for the choice of dayOfWeek vs. date,
-// and that the topmost bit of each helps determine if/how the alarm repeats.
-	Wire.requestFrom(DSRTCLib_CTRL_ID, 4);
-	for(int i=0; i<4; i++)
-	{
-                // store data in raw bcd format
-		if (Wire.available())
-		{
-			temp = I2C_READ();
-			rtc_bcd[i] = temp & B01111111;
-		}
-	}
+// Read the current alarm 2 value in BCD format.
+void RTC_DS1339::read_alarm2(void)
+{
+    Wire.beginTransmission(DS1339_ADDR);
+    Wire.write( (uint8_t)DS1339_ALARM2_ADDR );
+    Wire.endTransmission();
 
-	// 4th byte read may contain either a date or DayOfWeek, depending on the value of the DY/DT flag.
-	// For laziness sake we read it into the DayOfWeek field regardless (rtc_bcd[3]). Correct as needed...
-        if(rtc_bcd[3] & B01000000) // DY/DT set: DayOfWeek
-        {
-           rtc_bcd[3] &= B10111111; // clear DY/DT flag
-           rtc_bcd[4] = 0; // alarm *date* undefined
-        }
-        else
-        {
-            rtc_bcd[4] = rtc_bcd[3];
-            rtc_bcd[3] = 0; // alarm dayOfWeek undefined
-        }
+    // Request 3 bytes of alarm 2 values (min : hour : date)
+    Wire.requestFrom(DS1339_ADDR, 3);
+    rtc_bcd[DS1339_MIN] = Wire.read() & B01111111;
+    rtc_bcd[DS1339_HOUR] = Wire.read() & B00111111; // Only 24 hour format is supported other bits are discarted
+    rtc_bcd[DS1339_DATE] = Wire.read() & B00111111; // Only Date of month is supported other bits are discarted
 }
 
 // update the data on the IC from the bcd formatted data in the buffer
-
-void RTC_DS1339::writeTime(void)
+void RTC_DS1339::write_time(void)
 {
-	Wire.beginTransmission(DSRTCLib_CTRL_ID);
-	I2C_WRITE((uint8_t)0x00); // reset register pointer
-	for(int i=0; i<7; i++)
-	{
-		I2C_WRITE(rtc_bcd[i]);
-	}
-	Wire.endTransmission();
-
-	// clear the Oscillator Stop Flag
-        setRegister(DSRTCLib_STATUS, getRegister(DSRTCLib_STATUS) & !DSRTCLib_STATUS_OSF);
+    Wire.beginTransmission(DS1339_ADDR);
+    Wire.write(0);
+    Wire.write(rtc_bcd[DS1339_SEC]);
+    Wire.write(rtc_bcd[DS1339_MIN]);
+    Wire.write(rtc_bcd[DS1339_HOUR]);
+    Wire.write(rtc_bcd[DS1339_DOW]);
+    Wire.write(rtc_bcd[DS1339_DATE]);
+    Wire.write(rtc_bcd[DS1339_MONTH]);
+    Wire.write(rtc_bcd[DS1339_YEAR]);    
+    Wire.endTransmission();
+    
+    // clear Oscillator Stop Flag
+    set_register(REG_DS1339_CONTROL, get_register(REG_DS1339_CONTROL) & !BITM_DS1339_CONTROL_EOSC);
 }
 
 void RTC_DS1339::writeTime(unsigned long sse)
@@ -148,29 +139,31 @@ void RTC_DS1339::writeTime(unsigned long sse)
 
 // Write the BCD alarm value in the buffer to the alarm registers.
 // If an alarm repeat mode has been specified, poke those bytes into the buffer before sending.
-void DSRTCLib::writeAlarm(void)
+void RTC_DS1339::write_alarm1(alarm1_rate opt)
 {
-	Wire.beginTransmission(DSRTCLib_CTRL_ID);
-	I2C_WRITE((uint8_t)DSRTCLib_ARLM1); // set register pointer
-
-        I2C_WRITE(rtc_bcd[DSRTCLib_SEC] | ((alarm_repeat & B00000001 ) << 7)); // A1M1
-        I2C_WRITE(rtc_bcd[DSRTCLib_MIN] | ((alarm_repeat & B00000010 ) << 6)); // A1M2
-        I2C_WRITE(rtc_bcd[DSRTCLib_HR] | ((alarm_repeat & B00000100 ) << 5)); // A1M3
-
-        // Check if we are using date or DayOfWeek and send the appropriate value
-        if(alarm_repeat & B00001000) // DayOfWeek
-        {
-            // send DOW as 4th alarm reg byte
-            I2C_WRITE(rtc_bcd[DSRTCLib_DOW] | ((alarm_repeat & B00011000 ) << 3)); // A1M4 and DY/DT
-        }
-        else // date
-        {
-            // send date as 4th alarm reg byte
-            I2C_WRITE(rtc_bcd[DSRTCLib_DATE] | ((alarm_repeat & B00011000 ) << 3)); // A1M4 and DY/DT
-        }
-
-	Wire.endTransmission();
+    Wire.beginTransmission(DS1339_ADDR);
+    Wire.write( (uint8_t)DS1339_ALARM1_ADDR );
+    
+    Wire.write( rtc_bcd[DS1339_SEC]  | ((opt & B00000001 ) << 7)); // A1M1
+    Wire.write( rtc_bcd[DS1339_MIN]  | ((opt & B00000010 ) << 6)); // A1M2
+    Wire.write( rtc_bcd[DS1339_HOUR] | ((opt & B00000100 ) << 5)); // A1M3
+    Wire.write( rtc_bcd[DS1339_DATE] | ((opt & B00001000 ) << 4)); // A1M4
+    
+    Wire.endTransmission();
 }
+
+void RTC_DS1339::write_alarm2(alarm2_rate opt)
+{
+    Wire.beginTransmission(DS1339_ADDR);
+    Wire.write( (uint8_t)DS1339_ALARM2_ADDR );
+    
+    Wire.write( rtc_bcd[DS1339_MIN]  | ((opt & B00000001 ) << 7)); // A2M1
+    Wire.write( rtc_bcd[DS1339_HOUR] | ((opt & B00000010 ) << 6)); // A2M2
+    Wire.write( rtc_bcd[DS1339_DATE] | ((opt & B00000100 ) << 5)); // A2M3
+    
+    Wire.endTransmission();
+}
+
 
 
 void DSRTCLib::writeAlarm(unsigned long sse)
@@ -490,37 +483,37 @@ void DSRTCLib::custom_snooze(unsigned long secondsToSnooze)
   
 }
 
-void RTC_DS1339::Set_Seconds(unsigned char v)
+void RTC_DS1339::set_second(unsigned char v)
 {
     rtc_bcd[DS1339_SEC] = bin2bcd(v);
 
 }
-void RTC_DS1339::Set_Minutes(unsigned char v)
+void RTC_DS1339::set_minute(unsigned char v)
 {
     rtc_bcd[DS1339_MIN] = bin2bcd(v);
 
 }
-void RTC_DS1339::Set_Hours(unsigned char v)
+void RTC_DS1339::set_hour(unsigned char v)
 {
     rtc_bcd[DS1339_HOUR] = bin2bcd(v);
 
 }
-void RTC_DS1339::Set_DayOfWeek(unsigned char v)
+void RTC_DS1339::set_dayofweek(unsigned char v)
 {
     rtc_bcd[DS1339_DOW] = bin2bcd(v);
 
 }
-void RTC_DS1339::Set_Days(unsigned char v)
+void RTC_DS1339::set_day(unsigned char v)
 {
     rtc_bcd[DS1339_DATE] = bin2bcd(v);
 
 }
-void RTC_DS1339::Set_Months(unsigned char v)
+void RTC_DS1339::set_month(unsigned char v)
 {
     rtc_bcd[DS1339_MONTH] = bin2bcd(v);
 
 }
-void RTC_DS1339::Set_Years(unsigned int v)
+void RTC_DS1339::set_year(unsigned int v)
 {
     if(v>1999)
         v -= 2000;
