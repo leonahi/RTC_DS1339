@@ -37,40 +37,6 @@
 
 #define DS1339_ADDR  B1101000  // DS1339 slave address
 
- // Define register bit masks
-#define DSRTCLib_CLOCKHALT	B10000000
-
-#define DSRTCLib_LO_BCD		B00001111
-#define DSRTCLib_HI_BCD		B11110000
-
-#define DSRTCLib_HI_SEC		B01110000
-#define DSRTCLib_HI_MIN		B01110000
-#define DSRTCLib_HI_HR		B00110000
-#define DSRTCLib_LO_DOW		B00000111
-#define DSRTCLib_HI_DATE		B00110000
-#define DSRTCLib_HI_MTH		B00110000
-#define DSRTCLib_HI_YR		B11110000
-
-#define DSRTCLib_ARLM1		0x07
-#define DSRTCLib_ARLM1_LO_SEC	B00001111
-#define DSRTCLib_ARLM1_HI_SEC	B01110000
-#define DSRTCLib_ARLM1_LO_MIN	B01110000
-#define DSRTCLib_ARLM1_HI_MIN	B00001111
-
-#define DSRTCLib_SP			0x0E
-#define	DSRTCLib_SP_EOSC		B10000000
-#define	DSRTCLib_SP_RS2		B00010000
-#define	DSRTCLib_SP_RS1		B00001000
-#define	DSRTCLib_SP_INTCN		B00000100
-#define	DSRTCLib_SP_A2IE		B00000010
-#define	DSRTCLib_SP_A1IE		B00000001
-
-#define DSRTCLib_STATUS		0x0F
-#define DSRTCLib_STATUS_OSF	B10000000
-#define DSRTCLib_STATUS_A2F	B00000010
-#define DSRTCLib_STATUS_A1F	B00000001
-
-
 // DS1339 Register Definition
 #define REG_DS1339_SECONDS          0x00
 #define REG_DS1339_MINUTES          0x01
@@ -286,7 +252,6 @@ typedef unsigned long time_t;
 // Library interface
 class RTC_DS1339
 {
-	// user-accessible "public" interface
 public:
     enum alarm {A1, A2};
     enum alarm1_rate {OPT1=15, OPT2=14, OPT3=12, OPT4=1, OPT5=0};
@@ -299,50 +264,44 @@ public:
     unsigned char alarm_is_set();
     //unsigned char time_is_valid();
     
-    void Enable_Interrupt();
-    void Disable_Interrupt();
-    void Clear_Interrupt();
+    void enable_interrupt();
+    void disable_interrupt();
+    void clear_interrupt();
     
     void read_time();
     void read_alarm1();
     void read_alarm2();
     
-    void set_alarm1_rate(alarm1_rate opt);
-    void set_alarm2_rate(alarm2_rate opt);
-        
-		void    writeTime();
-                void    writeTime(unsigned long);
-		void    writeAlarm();
-                void    writeAlarm(unsigned long);
-                void    setAlarmRepeat(byte repeat);
+    void set_alarm1(alarm1_rate opt);
+    void set_alarm2(alarm2_rate opt);
+    
+    void set_time();
+    
+    // Put MCU in lowest power mode possible and wakeup using external interrupt
+    void deep_sleep(time_t sleep_time, );
+    
+    unsigned char get_second();
+    unsigned char get_minute();
+    unsigned char get_hour();
+    unsigned char get_day();
+    unsigned char get_dayofweek();
+    unsigned char get_month();
+    unsigned int get_year();
+    
+    void set_second(unsigned char);
+    void set_minute(unsigned char);
+    void set_hour(unsigned char);
+    void set_day(unsigned char);
+    void set_dayofweek(unsigned char);
+    void set_month(unsigned char);
+    void set_year(unsigned int);
+    
+    void start(void);
+    void stop(void);
+    
+    unsigned char get_register(unsigned char reg_addr);
+    void set_register(unsigned char reg_addr, unsigned char reg_value);
 
-                unsigned long date_to_epoch_seconds(unsigned int year, byte month, byte day, byte hour, byte minute, byte second);
-                unsigned long date_to_epoch_seconds();
-                void epoch_seconds_to_date(unsigned long);								
-                void snooze(unsigned long secondsToSnooze);
-				void custom_snooze(unsigned long secondsToSnooze);
-
-        unsigned char get_second();
-        unsigned char get_minute();
-        unsigned char get_hour();
-        unsigned char get_day();
-        unsigned char get_dayofweek();
-        unsigned char get_month();
-        unsigned int get_year();
-                        
-        void set_second(unsigned char);
-        void set_minute(unsigned char);
-        void set_hour(unsigned char);
-        void set_day(unsigned char);
-        void set_dayofweek(unsigned char);
-        void set_month(unsigned char);
-        void set_year(unsigned int);
-
-        void start(void);
-        void stop(void);
-        
-        unsigned char get_register(unsigned char reg_address);
-        void set_register(unsigned char reg_address, unsigned char reg_value);
 private:
     void init();
     byte time_set;
