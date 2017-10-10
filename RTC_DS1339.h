@@ -1,28 +1,23 @@
 /*
-  RTC_DS1339.h - library for Maxim Integrated's DS1339 RTC
-  Note : The supported format of date and time is - (SEC : MIN : HOUR : DATE : MONTH : YEAR) where HOUR is in 24 hour format
-         Day of week (DOW) is not implemented in this version of library 
+  Author : Nahit Pawar 
+  RTC_DS1339.h - Library for Maxim Integrated's DS1339 RTC
+  Note : The supported format of date and time is - (YEAR : MONTH : DATE : HOUR : MINUTE : SECONDS) where HOUR is in 24 hour format
+         Day of week (DOW) is not implemented in this version of library "YYYY-MM-DD hh:mm:ss" 19 characters
 */
 
-// ensure this library description is only included once
-#ifndef DSRTCLib_h
-#define DSRTCLib_h
+// Ensure this library description is only included once
+#ifndef RTC_DS1339_H
+#define RTC_DS1339_H
 
-// include types & constants of Wiring core API
+// Include types & constants of Wiring core API
 #if defined(ARDUINO) && ARDUINO >= 100
 #include <Arduino.h> 
-#define I2C_READ	Wire.read
-#define I2C_WRITE	Wire.write
-#else
-#include <WProgram.h> 
-#include <WConstants.h>
-#define I2C_READ	Wire.receive
-#define I2C_WRITE	Wire.send
+#define I2C_READ    Wire.read
+#define I2C_WRITE   Wire.write
 #endif
 
 // include types & constants of Wire ic2 lib
 #include <Wire.h>
-
 
 //Indices within the rtc_bcd[] buffer
 #define DS1339_SEC    0
@@ -33,11 +28,11 @@
 #define DS1339_MONTH  5
 #define DS1339_YEAR   6
 
-#define DSRTCLib_BASE_YR		2000
+#define DS1339_BASE_YR        2000
 
 #define DS1339_ADDR  B1101000  // DS1339 slave address
 
-// DS1339 Register Definition
+// DS1339 Register Address
 #define REG_DS1339_SECONDS          0x00
 #define REG_DS1339_MINUTES          0x01
 #define REG_DS1339_HOURS            0x02
@@ -226,93 +221,74 @@
 #define BITP_DS1339_STATUS_OSF B10000000
 
 
-/* Definitions for alarm repeat */
-/* The private variable alarm_repeat holds the user's alarm repeat preference. However, the DS1337 & DS1339 encode these in the topmost bit(s) of the 4 alarm registers. */
-/* Splattering these bits across the alarm regs is handled in the writeAlarm() function. */
-/* If DY/DT is set, the day field is interpreted as a DayOfWeek (1 ~ 7), else it is interpreted as a DayOfMonth.*/
-
-/* user alarm_repeat bit mask:
-       7   6   5    4       3      2       1     0
-      [x   x   x   A1M4   DY/DT   A1M3   A1M2   A1M1]
-*/
-
-#define EVERY_SECOND       B00010111
-#define EVERY_MINUTE       B00010110
-#define EVERY_HOUR         B00010100
-#define EVERY_DAY          B00010000
-#define EVERY_WEEK         B00001000
-#define EVERY_MONTH        B00000000
-
 #define ALARM_INDEX(a) (1<<a)  //  Interrupt Enable and Flag bit position for Alarm 1 and Alarm 2 in Status and Control register
 
-
 typedef unsigned long time_t;
-
 
 // Library interface
 class RTC_DS1339
 {
 public:
-    enum alarm {A1, A2};
-    enum alarm1_rate {OPT1=15, OPT2=14, OPT3=12, OPT4=1, OPT5=0};
-    enum alarm2_rate {OPT1=7, OPT2=6, OPT3=4, OPT4=0};
-    
     RTC_DS1339();
-    RTC_DS1339(int int_pin, int int_number);
     
+    enum alarm {A1=0, A2=1};
+
+    // Alarm 1 repeat bit mask : [x  x  x  DY/DT  A1M4  A1M3  A1M2  A1M1] 
+    enum alarm1_rate {A1_EVERY_SEC=B00001111, A1_EVERY_MIN=B00001110, A1_EVERY_HR=B00001100, A1_EVERY_DY=B00001000, A1_EVERY_WK=B00010000, A1_EVERY_MON=B00000000};
+    
+    // Alarm 2 repear bit mask : [x  x  x  x  DY/DT  A2M4  A2M3  A2M2]
+    enum alarm2_rate {A2_EVERY_0_SEC=B00000111, A2_EVERY_MIN=B00000110, A2_EVERY_DY=B00000100, A2_EVERY_WK=B00001000, A2_EVERY_MON=B00000000};
+
     unsigned char time_is_set();
     unsigned char alarm_is_set();
-    //unsigned char time_is_valid();
     
-    void enable_interrupt();
-    void disable_interrupt();
-    void clear_interrupt();
+    void enable_interrupt(alarm a);
+    void disable_interrupt(alarm a);
+    void clear_interrupt(alarm a);
     
     void read_time();
+    void set_time();
+    
     void read_alarm1();
     void read_alarm2();
     
     void set_alarm1(alarm1_rate opt);
     void set_alarm2(alarm2_rate opt);
+        
+    void time_stamp();
     
-    void set_time();
+    unsigned short int set_time_serial();
     
-    // Put MCU in lowest power mode possible and wakeup using external interrupt
-    void deep_sleep(time_t sleep_time, );
-    
-    unsigned char get_second();
-    unsigned char get_minute();
-    unsigned char get_hour();
-    unsigned char get_day();
+    unsigned char get_seconds();
+    unsigned char get_minutes();
+    unsigned char get_hours();
+    unsigned char get_days();
     unsigned char get_dayofweek();
-    unsigned char get_month();
-    unsigned int get_year();
+    unsigned char get_months();
+    unsigned int get_years();
     
-    void set_second(unsigned char);
-    void set_minute(unsigned char);
-    void set_hour(unsigned char);
-    void set_day(unsigned char);
+    void set_seconds(unsigned char);
+    void set_minutes(unsigned char);
+    void set_hours(unsigned char);
+    void set_days(unsigned char);
     void set_dayofweek(unsigned char);
-    void set_month(unsigned char);
-    void set_year(unsigned int);
+    void set_months(unsigned char);
+    void set_years(unsigned int);
     
-    void start(void);
-    void stop(void);
+    void rtc_start(void);
+    void rtc_stop(void);
     
     unsigned char get_register(unsigned char reg_addr);
     void set_register(unsigned char reg_addr, unsigned char reg_value);
 
 private:
-    void init();
     byte time_set;
     byte alarm_repeat;
     byte rtc_bcd[7]; // used prior to read/set DS1337 & DS1339 registers;
     void read(void);
     void save(void);
     byte bcd2bin(byte);
-    byte bin2bcd(byte);
-    int _rtc_int_number;
-    int _rtc_int_pin;
+    byte bin2bcd(byte);    
 };
 
 #endif
