@@ -56,7 +56,7 @@ void RTC_DS1339::read_alarm2(void)
     rtc_bcd[DS1339_DATE] = Wire.read() & B00111111;
 }
 
-// update the data on the IC from the bcd formatted data in the buffer
+// Update time from bcd buffer (rtc_bcd) into DS1339
 void RTC_DS1339::set_time(void)
 {
     Wire.beginTransmission(DS1339_ADDR);
@@ -71,7 +71,7 @@ void RTC_DS1339::set_time(void)
     Wire.endTransmission();
     
     // clear Oscillator Stop Flag
-    set_register(REG_DS1339_CONTROL, get_register(REG_DS1339_CONTROL) & ~BITM_DS1339_CONTROL_EOSC);
+    //set_register(REG_DS1339_CONTROL, get_register(REG_DS1339_CONTROL) & ~BITM_DS1339_CONTROL_EOSC);
 }
 
 void RTC_DS1339::set_alarm1(alarm1_rate opt)
@@ -217,16 +217,38 @@ byte RTC_DS1339::bin2bcd(byte v)
    return ((v / 10)<<4) + (v % 10);
 }
 
+// ---- rtc_stop ----
+//
+// stop RTC - This function disables the internal oscillator
 void RTC_DS1339::rtc_stop(void)
 {
     set_register(REG_DS1339_CONTROL, get_register(REG_DS1339_CONTROL) | BITM_DS1339_CONTROL_EOSC);
 }
 
+// ---- rtc_start() ----
+//
+// start RTC - This function enables the internal oscillator
 void RTC_DS1339::rtc_start(void)
 {
     set_register(REG_DS1339_CONTROL, get_register(REG_DS1339_CONTROL) & ~BITM_DS1339_CONTROL_EOSC);
 }
 
+
+// ---- set_time_serial() ----
+// 
+// Set RTC time from serial console the accepted format of date and time is - YYYY-MM-DD W hh:mm:ss 
+// For example, if you want enter the following date and time :
+// Year        - 2017
+// Month       - 12
+// Day         - 20
+// Day of week - Wednesday (Mon - 1, Tues - 2, Wed - 3, ... , Sun - 7)
+// Hour        - 15
+// Minutes     - 3
+// Seconds     - 40
+// 
+// On serial console enter - 2017-12-20 3 12:03:40
+//
+// NOTE : Make sure to disable oscillator ( func : rtc_stop() ) before setting the time.
 unsigned short int RTC_DS1339::set_time_serial()
 {
   unsigned short int num_bytes=19;
@@ -235,6 +257,8 @@ unsigned short int RTC_DS1339::set_time_serial()
   char c;
 
   Serial.begin(9600);
+
+  Serial.println("Enter date and time in format - YYYY-MM-DD W hh:mm:ss");
   
   for(int yr=0; yr<4; ++yr)
   {
